@@ -5,6 +5,7 @@ import '../models/signal.dart';
 class SignalRepository {
   final List<String> _subreddits = ['startups', 'indiehackers'];
 
+  // Hybrid Data Repository: Try live fetch, silently fallback to mock
   Future<List<Signal>> fetchSignals(List<String> userInterests) async {
     try {
       final signals = await _fetchFromReddit(userInterests);
@@ -35,23 +36,9 @@ class SignalRepository {
             final body = (pd['selftext'] ?? '').toString();
             final text = '$title $body'.toLowerCase();
 
-            final frustration = _score(text, const [
-              'hate', 'stuck', 'annoying', 'fail', 'terrible', 'awful',
-              'nightmare', 'painful', 'struggling', 'difficult', 'broken',
-              'sucks', 'worst', 'impossible', 'confused'
-            ], 5);
-
-            final payIntent = _score(text, const [
-              'pay', 'buy', 'pricing', 'worth it', 'purchase', 'subscription',
-              'cost', 'price', 'paid', 'invest', 'budget', 'afford', '
-', 'money'
-            ], 5);
-
-            final frequency = _score(text, const [
-              'always', 'every', 'daily', 'constantly', 'often', 'frequently',
-              'all the time', 'keeps', 'again', 'repeatedly'
-            ], 4) + 0.3;
-
+            final frustration = _calculateFrustration(text);
+            final payIntent = _calculatePayIntent(text);
+            final frequency = _calculateFrequency(text);
             final category = _categorize(text, userInterests);
 
             if (category != 'Other' && (frustration > 0.3 || payIntent > 0.3)) {
@@ -59,7 +46,7 @@ class SignalRepository {
                 title: title,
                 body: body.length > 200 ? '${body.substring(0, 200)}...' : body,
                 category: category,
-                frequency: frequency.clamp(0.0, 1.0),
+                frequency: frustration.clamp(0.0, 1.0),
                 frustration: frustration.clamp(0.0, 1.0),
                 payIntent: payIntent.clamp(0.0, 1.0),
                 source: 'r/$subreddit',
@@ -76,12 +63,40 @@ class SignalRepository {
     return allSignals.take(20).toList();
   }
 
-  double _score(String text, List<String> keywords, int denom) {
+  double _calculateFrustration(String text) {
+    const keywords = ['hate', 'stuck', 'annoying', 'fail'];
     int count = 0;
     for (final k in keywords) {
       if (text.contains(k)) count++;
     }
-    return (count / denom).clamp(0.0, 1.0);
+    return (count / keywords.length).clamp(0.0, 1.0);
+  }
+
+  double _calculatePayIntent(String text) {
+    const keywords = ['pay', 'buy', 'pricing', 'worth it'];
+    int count = 0;
+    for (final k in keywords) {
+      if (text.contains(k)) count++;
+    }
+    return (count / keywords.length).clamp(0.0, 1.0);
+  }
+
+  double _calculateFrequency(String text) {
+    const keywords = [
+      'always',
+      'every',
+      'daily',
+      'constantly',
+      'often',
+      'frequently',
+      'again',
+      'repeatedly',
+    ];
+    int count = 0;
+    for (final k in keywords) {
+      if (text.contains(k)) count++;
+    }
+    return (count / 4).clamp(0.0, 1.0) + 0.3; // base lift
   }
 
   String _categorize(String text, List<String> userInterests) {
@@ -106,7 +121,8 @@ class SignalRepository {
     final all = [
       Signal(
         title: 'Stripe Connect is a nightmare to implement',
-        body: 'Spent 3 days trying to figure out the OAuth flow. The documentation is confusing and error messages are cryptic. Would pay for a simplified wrapper.',
+        body:
+            'Spent 3 days trying to figure out the OAuth flow. The documentation is confusing and error messages are cryptic. Would pay for a simplified wrapper.',
         category: 'SaaS',
         frequency: 0.8,
         frustration: 0.95,
@@ -115,7 +131,8 @@ class SignalRepository {
       ),
       Signal(
         title: 'Finding quality AI training data is impossible',
-        body: 'Every dataset I find is either too expensive or low quality. We need a marketplace for verified, domain-specific training data.',
+        body:
+            'Every dataset I find is either too expensive or low quality. We need a marketplace for verified, domain-specific training data.',
         category: 'AI',
         frequency: 0.9,
         frustration: 0.88,
@@ -124,7 +141,8 @@ class SignalRepository {
       ),
       Signal(
         title: 'No-code tools break at scale',
-        body: 'Built my MVP on Bubble, now it\'s too slow. Can\'t migrate easily. Stuck between rebuilding from scratch or dealing with poor performance.',
+        body:
+            'Built my MVP on Bubble, now it\'s too slow. Can\'t migrate easily. Stuck between rebuilding from scratch or dealing with poor performance.',
         category: 'No-Code',
         frequency: 0.75,
         frustration: 0.91,
@@ -133,7 +151,8 @@ class SignalRepository {
       ),
       Signal(
         title: 'API documentation tools all suck',
-        body: 'Swagger is outdated, Postman is bloated. Need something that auto-generates docs from code and keeps them in sync.',
+        body:
+            'Swagger is outdated, Postman is bloated. Need something that auto-generates docs from code and keeps them in sync.',
         category: 'DevTools',
         frequency: 0.85,
         frustration: 0.78,
@@ -142,7 +161,8 @@ class SignalRepository {
       ),
       Signal(
         title: 'Crypto tax reporting is a full-time job',
-        body: 'Tracking transactions across 12 wallets and 8 exchanges. Existing tools miss half my trades. Would pay $500/year for accurate reporting.',
+        body:
+            'Tracking transactions across 12 wallets and 8 exchanges. Existing tools miss half my trades. Would pay \$500/year for accurate reporting.',
         category: 'Crypto',
         frequency: 0.65,
         frustration: 0.93,
@@ -151,7 +171,8 @@ class SignalRepository {
       ),
       Signal(
         title: 'Managing SaaS subscriptions is chaos',
-        body: 'We have 47 active subscriptions. No idea what half of them do. Need a tool to track usage and suggest cancellations.',
+        body:
+            'We have 47 active subscriptions. No idea what half of them do. Need a tool to track usage and suggest cancellations.',
         category: 'SaaS',
         frequency: 0.80,
         frustration: 0.72,
@@ -160,7 +181,8 @@ class SignalRepository {
       ),
       Signal(
         title: 'AI models keep hallucinating in production',
-        body: 'Our customer support AI makes up facts 15% of the time. Can\'t find a good solution to validate outputs before they reach users.',
+        body:
+            'Our customer support AI makes up facts 15% of the time. Can\'t find a good solution to validate outputs before they reach users.',
         category: 'AI',
         frequency: 0.88,
         frustration: 0.89,
@@ -169,7 +191,8 @@ class SignalRepository {
       ),
       Signal(
         title: 'Email deliverability is black magic',
-        body: 'Cold emails keep landing in spam. Tried everything: SPF, DKIM, warm-up services. Still 40% spam rate. This is killing our growth.',
+        body:
+            'Cold emails keep landing in spam. Tried everything: SPF, DKIM, warm-up services. Still 40% spam rate. This is killing our growth.',
         category: 'SaaS',
         frequency: 0.92,
         frustration: 0.86,
@@ -178,7 +201,8 @@ class SignalRepository {
       ),
       Signal(
         title: 'Version control for no-code is non-existent',
-        body: 'Made a change in Webflow that broke everything. No way to rollback. Had to rebuild 6 hours of work. This is unacceptable.',
+        body:
+            'Made a change in Webflow that broke everything. No way to rollback. Had to rebuild 6 hours of work. This is unacceptable.',
         category: 'No-Code',
         frequency: 0.70,
         frustration: 0.94,
@@ -187,7 +211,8 @@ class SignalRepository {
       ),
       Signal(
         title: 'Developer onboarding takes forever',
-        body: 'New devs take 2 weeks to get productive. Need better docs, codebase walkthroughs, and environment setup automation.',
+        body:
+            'New devs take 2 weeks to get productive. Need better docs, codebase walkthroughs, and environment setup automation.',
         category: 'DevTools',
         frequency: 0.78,
         frustration: 0.81,
