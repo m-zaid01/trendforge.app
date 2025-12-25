@@ -9,14 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
-  # State Management
   provider: ^6.1.1
-  
-  # HTTP Requests
   http: ^1.1.0
-  
-  # UI
   google_fonts: ^6.1.0
 
 dev_dependencies:

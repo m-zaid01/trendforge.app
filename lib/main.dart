@@ -27,11 +27,11 @@ class TrendForgeApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.grey[100],
         textTheme: GoogleFonts.poppinsTextTheme(),
         primarySwatch: Colors.purple,
-        cardTheme: CardTheme(
+        cardTheme: const CardTheme(
           color: Colors.white,
           elevation: 2,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
         ),
       ),
